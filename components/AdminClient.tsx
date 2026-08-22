@@ -14,8 +14,11 @@ import {
   AlertCircle,
   ShieldCheck,
   ChevronRight,
+  Trash2,
+  ShieldAlert,
 } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { formatDate } from '@/lib/utils';
 import type { Suggestion, SuggestionStatus, SuggestionType } from '@/lib/types';
 
@@ -30,6 +33,10 @@ export default function AdminClient() {
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
+
+  const [target, setTarget] = useState<Suggestion | null>(null); // 삭제 대상
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -57,6 +64,23 @@ export default function AdminClient() {
     await fetch('/api/admin/logout', { method: 'POST' });
     setAuth('guest');
     setItems([]);
+  };
+
+  const confirmDelete = async () => {
+    if (!target) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/admin/suggestions/${target.id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || '삭제에 실패했습니다.');
+      setItems((prev) => prev.filter((it) => it.id !== target.id));
+      setTarget(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const counts = useMemo(() => {
@@ -144,13 +168,13 @@ export default function AdminClient() {
       ) : (
         <ul className="space-y-3">
           {filtered.map((it) => (
-            <li key={it.id}>
-              <Link
-                href={`/admin/${it.id}`}
-                className="group flex w-full items-center gap-4 rounded-2xl border border-black/[0.08] bg-white p-5 text-left shadow-card transition-all hover:border-black/[0.14] hover:shadow-card-hover"
-              >
+            <li
+              key={it.id}
+              className="group relative rounded-2xl border border-black/[0.08] bg-white shadow-card transition-all hover:border-black/[0.14] hover:shadow-card-hover"
+            >
+              <Link href={`/admin/${it.id}`} className="flex items-center gap-4 p-5">
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pr-10">
                     <div className="flex items-center gap-2 text-sm font-medium text-ink-soft">
                       {it.type === 'ANONYMOUS' ? (
                         <span className="inline-flex items-center gap-1">
@@ -183,21 +207,85 @@ export default function AdminClient() {
                 </div>
                 <ChevronRight className="h-5 w-5 flex-shrink-0 text-ink-muted transition-transform group-hover:translate-x-0.5" />
               </Link>
+
+              {/* 삭제 버튼 (링크 위에 겹쳐 배치) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteError(null);
+                  setTarget(it);
+                }}
+                aria-label="이 건의 삭제"
+                title="삭제"
+                className="absolute right-12 top-4 flex h-8 w-8 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-red-50 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </li>
           ))}
         </ul>
+      )}
+
+      {target && (
+        <ConfirmDialog
+          title="이 건의를 삭제할까요?"
+          description={`접수코드 ${target.ticket_code} · ${
+            target.type === 'ANONYMOUS' ? '익명' : target.author_name || '일반'
+          }\n삭제하면 되돌릴 수 없고, 학생도 더 이상 조회할 수 없습니다.${
+            deleteError ? `\n\n${deleteError}` : ''
+          }`}
+          working={deleting}
+          onConfirm={confirmDelete}
+          onCancel={() => {
+            if (!deleting) {
+              setTarget(null);
+              setDeleteError(null);
+            }
+          }}
+        />
       )}
     </div>
   );
 }
 
+/* ───────────────────────── 로그인 (잠금 기능 포함) ───────────────────────── */
 function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [remain, setRemain] = useState(0); // 잠금 남은 초
+  const [guardReady, setGuardReady] = useState(true); // 잠금 표 준비 여부
+
+  // 새로고침해도 남은 잠금 시간을 서버에서 다시 받아옴
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/admin/login', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!alive) return;
+        if (d?.locked) setRemain(d.retryAfterSeconds ?? 0);
+        if (d?.ready === false) setGuardReady(false);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // 1초마다 카운트다운
+  useEffect(() => {
+    if (remain <= 0) return;
+    const t = setInterval(() => setRemain((s) => (s <= 1 ? 0 : s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [remain]);
+
+  const locked = remain > 0;
+  const mm = String(Math.floor(remain / 60)).padStart(2, '0');
+  const ss = String(remain % 60).padStart(2, '0');
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (locked) return;
     setError(null);
     setLoading(true);
     try {
@@ -207,7 +295,11 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
         body: JSON.stringify({ password }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '로그인에 실패했습니다.');
+      if (!res.ok) {
+        if (data?.locked) setRemain(data.retryAfterSeconds ?? 300);
+        setPassword('');
+        throw new Error(data.error || '로그인에 실패했습니다.');
+      }
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
@@ -222,50 +314,100 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
         onSubmit={submit}
         className="w-full rounded-3xl border border-black/[0.08] bg-white p-7 shadow-card sm:p-8"
       >
-        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-white">
-          <Lock className="h-7 w-7" strokeWidth={1.8} />
-        </div>
-        <h1 className="text-center text-xl font-semibold tracking-tight text-ink">관리자 로그인</h1>
-        <p className="mt-2 text-center text-sm leading-relaxed text-ink-muted">
-          학급 임원과 담임 선생님만 접속할 수 있어요.
-        </p>
-
-        <div className="mt-6">
-          <label htmlFor="pw" className="mb-2 block text-sm font-medium text-ink">
-            비밀번호
-          </label>
-          <input
-            id="pw"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="비밀번호를 입력하세요"
-            autoFocus
-            className="focus-ring w-full rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-[15px] text-ink placeholder:text-ink-muted"
-            disabled={loading}
-          />
-        </div>
-
-        {error && (
-          <div className="mt-4 flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading || !password}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-accent py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
+        <div
+          className={`mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
+            locked ? 'bg-red-50 text-red-600' : 'bg-accent text-white'
+          }`}
         >
-          {loading ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <Lock className="h-4.5 w-4.5" />}
-          로그인
-        </button>
+          {locked ? (
+            <ShieldAlert className="h-7 w-7" strokeWidth={1.8} />
+          ) : (
+            <Lock className="h-7 w-7" strokeWidth={1.8} />
+          )}
+        </div>
+
+        <h1 className="text-center text-xl font-semibold tracking-tight text-ink">
+          {locked ? '로그인이 잠겼습니다' : '관리자 로그인'}
+        </h1>
+
+        {locked ? (
+          <>
+            <p className="mt-2 text-center text-sm leading-relaxed text-ink-muted">
+              비밀번호를 틀려서 잠시 로그인할 수 없어요.
+              <br />
+              아래 시간이 지나면 다시 시도할 수 있습니다.
+            </p>
+            <div className="mt-6 rounded-2xl border border-black/[0.08] bg-surface-gray py-6">
+              <p className="text-center text-xs font-medium uppercase tracking-wider text-ink-muted">
+                남은 시간
+              </p>
+              <p className="mt-1 text-center font-mono text-4xl font-bold tabular-nums tracking-tight text-ink">
+                {mm}:{ss}
+              </p>
+            </div>
+            <p className="mt-4 text-center text-xs text-ink-muted">
+              새로고침하거나 창을 닫아도 시간은 그대로 유지됩니다.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="mt-2 text-center text-sm leading-relaxed text-ink-muted">
+              학급 임원과 담임 선생님만 접속할 수 있어요.
+            </p>
+
+            <div className="mt-6">
+              <label htmlFor="pw" className="mb-2 block text-sm font-medium text-ink">
+                비밀번호
+              </label>
+              <input
+                id="pw"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="비밀번호를 입력하세요"
+                autoFocus
+                className="focus-ring w-full rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-[15px] text-ink placeholder:text-ink-muted"
+                disabled={loading}
+              />
+              <p className="mt-2 text-xs text-ink-muted">
+                한 번이라도 틀리면 5분 동안 로그인할 수 없습니다.
+              </p>
+            </div>
+
+            {!guardReady && (
+              <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-800">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                <span>
+                  <b>잠금 보호가 아직 꺼져 있습니다.</b> Supabase SQL Editor에서{' '}
+                  <code className="rounded bg-amber-100 px-1">supabase-migration-lockout.sql</code>{' '}
+                  을 실행해 주세요.
+                </span>
+              </div>
+            )}
+
+            {error && (
+              <div className="mt-4 flex items-start gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || !password}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-accent py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
+            >
+              {loading ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <Lock className="h-4.5 w-4.5" />}
+              로그인
+            </button>
+          </>
+        )}
       </form>
     </div>
   );
 }
 
+/* ───────────────────────── UI 조각 ───────────────────────── */
 function StatCard({
   label,
   value,

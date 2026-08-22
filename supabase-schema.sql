@@ -27,3 +27,14 @@ create index if not exists suggestions_status_idx      on public.suggestions (st
 alter table public.suggestions enable row level security;
 
 -- 정책을 별도로 만들지 않음 → anon 클라이언트는 접근 불가(안전).
+
+-- 3) 관리자 로그인 잠금 기록 ------------------------------------------
+-- 비밀번호를 틀리면 일정 시간 로그인을 막기 위한 표입니다.
+create table if not exists public.admin_login_attempts (
+  id            text primary key,           -- 접속자 식별값(IP를 해시한 값)
+  fail_count    int         not null default 0,
+  locked_until  timestamptz,                -- 이 시각까지 로그인 시도 불가
+  updated_at    timestamptz not null default timezone('utc'::text, now())
+);
+
+alter table public.admin_login_attempts enable row level security;

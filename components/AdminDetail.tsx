@@ -13,8 +13,10 @@ import {
   Loader2,
   Check,
   AlertCircle,
+  Trash2,
 } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { formatDate } from '@/lib/utils';
 import { STATUS_LIST, type Suggestion, type SuggestionStatus } from '@/lib/types';
 
@@ -27,6 +29,8 @@ export default function AdminDetail({ suggestion }: { suggestion: Suggestion }) 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const dirty = status !== suggestion.status || reply !== (suggestion.admin_reply ?? '');
 
@@ -48,6 +52,22 @@ export default function AdminDetail({ suggestion }: { suggestion: Suggestion }) 
       setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/suggestions/${suggestion.id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || '삭제에 실패했습니다.');
+      router.push('/admin');
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+      setDeleting(false);
+      setConfirming(false);
     }
   };
 
@@ -162,8 +182,27 @@ export default function AdminDetail({ suggestion }: { suggestion: Suggestion }) 
               </>
             )}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            disabled={saving || deleting}
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-red-200 py-3 text-[15px] font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+          >
+            <Trash2 className="h-4.5 w-4.5" /> 이 건의 삭제하기
+          </button>
         </div>
       </div>
+
+      {confirming && (
+        <ConfirmDialog
+          title="이 건의를 삭제할까요?"
+          description={`접수코드 ${suggestion.ticket_code}\n삭제하면 되돌릴 수 없고, 학생도 더 이상 조회할 수 없습니다.`}
+          working={deleting}
+          onConfirm={remove}
+          onCancel={() => !deleting && setConfirming(false)}
+        />
+      )}
     </>
   );
 }

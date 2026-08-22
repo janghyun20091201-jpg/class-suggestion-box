@@ -47,3 +47,30 @@ export async function PATCH(
 
   return NextResponse.json({ suggestion: data });
 }
+
+// 관리자: 건의 삭제 (되돌릴 수 없음)
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  if (!isAuthenticated()) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('suggestions')
+    .delete()
+    .eq('id', params.id)
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[admin:delete]', error);
+    return NextResponse.json({ error: '삭제에 실패했습니다.' }, { status: 500 });
+  }
+  if (!data) {
+    return NextResponse.json({ error: '해당 건의를 찾을 수 없습니다.' }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true, id: data.id });
+}
