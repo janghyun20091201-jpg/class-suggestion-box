@@ -89,7 +89,7 @@ export default function AdminClient() {
     <div className="mx-auto max-w-content px-5 py-10 sm:px-6 sm:py-12">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="mb-1.5 flex items-center gap-2 text-appleblue">
+          <div className="mb-1.5 flex items-center gap-2 text-accent">
             <ShieldCheck className="h-5 w-5" strokeWidth={1.9} />
             <span className="text-sm font-medium">관리자</span>
           </div>
@@ -119,8 +119,8 @@ export default function AdminClient() {
 
       <div className="mb-6 grid grid-cols-3 gap-3">
         <StatCard label="전체" value={counts.total} active={statusFilter === 'ALL'} onClick={() => setStatusFilter('ALL')} />
-        <StatCard label="접수됨" value={counts['접수됨']} active={statusFilter === '접수됨'} onClick={() => setStatusFilter('접수됨')} tone="slate" />
-        <StatCard label="완료" value={counts['완료']} active={statusFilter === '완료'} onClick={() => setStatusFilter('완료')} tone="emerald" />
+        <StatCard label="접수됨" value={counts['접수됨']} active={statusFilter === '접수됨'} onClick={() => setStatusFilter('접수됨')} />
+        <StatCard label="완료" value={counts['완료']} active={statusFilter === '완료'} onClick={() => setStatusFilter('완료')} />
       </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -175,7 +175,7 @@ export default function AdminClient() {
                   <div className="mt-3 flex items-center gap-3 text-xs text-ink-muted">
                     <span>{formatDate(it.created_at)}</span>
                     {it.admin_reply && (
-                      <span className="inline-flex items-center gap-1 text-appleblue">
+                      <span className="inline-flex items-center gap-1 text-accent">
                         <CornerDownRight className="h-3.5 w-3.5" /> 답변 완료
                       </span>
                     )}
@@ -222,7 +222,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
         onSubmit={submit}
         className="w-full rounded-3xl border border-black/[0.08] bg-white p-7 shadow-card sm:p-8"
       >
-        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-appleblue/10 text-appleblue">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-white">
           <Lock className="h-7 w-7" strokeWidth={1.8} />
         </div>
         <h1 className="text-center text-xl font-semibold tracking-tight text-ink">관리자 로그인</h1>
@@ -256,7 +256,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
         <button
           type="submit"
           disabled={loading || !password}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-appleblue py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-appleblue-hover disabled:opacity-60"
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-accent py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
         >
           {loading ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <Lock className="h-4.5 w-4.5" />}
           로그인
@@ -271,31 +271,25 @@ function StatCard({
   value,
   active,
   onClick,
-  tone = 'blue',
 }: {
   label: string;
   value: number;
   active: boolean;
   onClick: () => void;
-  tone?: 'blue' | 'slate' | 'emerald';
 }) {
-  const dot = {
-    blue: 'bg-appleblue',
-    slate: 'bg-slate-400',
-    emerald: 'bg-emerald-500',
-  }[tone];
   return (
     <button
       onClick={onClick}
-      className={`rounded-2xl border bg-white p-4 text-left transition-all ${
-        active ? 'border-appleblue ring-1 ring-appleblue/30' : 'border-black/[0.08] hover:border-black/[0.14]'
+      className={`rounded-2xl border p-4 text-left transition-all ${
+        active
+          ? 'border-ink bg-ink text-white'
+          : 'border-black/[0.08] bg-white text-ink hover:border-black/[0.2]'
       }`}
     >
-      <div className="flex items-center gap-1.5">
-        <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
-        <span className="text-xs font-medium text-ink-muted">{label}</span>
-      </div>
-      <p className="mt-1 text-2xl font-bold tracking-tight text-ink">{value}</p>
+      <span className={`text-xs font-medium ${active ? 'text-white/70' : 'text-ink-muted'}`}>
+        {label}
+      </span>
+      <p className="mt-1 text-2xl font-bold tracking-tight">{value}</p>
     </button>
   );
 }

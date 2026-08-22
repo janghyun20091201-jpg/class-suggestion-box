@@ -10,7 +10,7 @@ export default function HomePage() {
         href="/submit"
         className="group flex items-center gap-4 rounded-3xl border border-black/[0.08] bg-white p-6 shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:border-black/[0.12] hover:shadow-card-hover sm:p-7"
       >
-        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-appleblue/10 text-appleblue transition-transform duration-300 group-hover:scale-105">
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-accent text-white transition-transform duration-300 group-hover:scale-105">
           <PenLine className="h-6 w-6" strokeWidth={1.8} />
         </div>
         <div className="min-w-0 flex-1">
@@ -72,10 +72,10 @@ function Step({
 }) {
   return (
     <div className="text-center">
-      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white text-appleblue shadow-card">
+      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white text-ink shadow-card ring-1 ring-black/[0.06]">
         {icon}
       </div>
-      <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-appleblue">
+      <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-accent">
         STEP {step}
       </p>
       <h3 className="mt-1 text-base font-semibold text-ink">{title}</h3>

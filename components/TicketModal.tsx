@@ -52,7 +52,7 @@ export default function TicketModal({
           <X className="h-4.5 w-4.5" />
         </button>
 
-        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-white">
           <PartyPopper className="h-7 w-7" strokeWidth={1.8} />
         </div>
 
@@ -61,7 +61,7 @@ export default function TicketModal({
         </h2>
 
         {order !== null && (
-          <p className="mt-2 text-center text-[15px] font-medium text-appleblue">
+          <p className="mt-2 text-center text-[15px] font-medium text-accent">
             우리 반의 {order}번째 건의예요
           </p>
         )}
@@ -85,8 +85,8 @@ export default function TicketModal({
           onClick={copy}
           className={`mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3 text-[15px] font-medium transition-all ${
             copied
-              ? 'bg-emerald-500 text-white'
-              : 'bg-appleblue text-white hover:bg-appleblue-hover'
+              ? 'border border-ink bg-white text-ink'
+              : 'bg-accent text-white hover:bg-accent-hover'
           }`}
         >
           {copied ? (

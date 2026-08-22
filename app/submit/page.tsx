@@ -34,14 +34,14 @@ export default function SubmitPage({
           <ChoiceCard
             href="/submit?type=anonymous"
             icon={<EyeOff className="h-6 w-6" strokeWidth={1.8} />}
-            accent="bg-appleblue/10 text-appleblue"
+            accent="bg-accent text-white"
             title="익명으로 건의하기"
             desc="이름이 저장되지 않아요. 누가 작성했는지 아무도 알 수 없습니다."
           />
           <ChoiceCard
             href="/submit?type=named"
             icon={<PenLine className="h-6 w-6" strokeWidth={1.8} />}
-            accent="bg-violet-500/10 text-violet-600"
+            accent="bg-surface-gray text-ink ring-1 ring-inset ring-black/[0.08]"
             title="일반으로 건의하기"
             desc="이름과 함께 남겨요. 더 구체적인 답변이 필요할 때 좋아요."
           />

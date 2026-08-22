@@ -62,7 +62,7 @@ export default function SubmitForm({ type }: { type: SuggestionType }) {
       <div className="mb-8">
         <div
           className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl ${
-            isNamed ? 'bg-violet-500/10 text-violet-600' : 'bg-appleblue/10 text-appleblue'
+            isNamed ? 'bg-surface-gray text-ink ring-1 ring-inset ring-black/[0.08]' : 'bg-accent text-white'
           }`}
         >
           {isNamed ? (
@@ -88,7 +88,7 @@ export default function SubmitForm({ type }: { type: SuggestionType }) {
         {isNamed && (
           <div className="mb-6">
             <label htmlFor="authorName" className="mb-2 block text-sm font-medium text-ink">
-              이름 <span className="text-appleblue">*</span>
+              이름 <span className="text-accent">*</span>
             </label>
             <input
               id="authorName"
@@ -105,7 +105,7 @@ export default function SubmitForm({ type }: { type: SuggestionType }) {
 
         <div className="mb-6">
           <label htmlFor="content" className="mb-2 block text-sm font-medium text-ink">
-            건의 내용 <span className="text-appleblue">*</span>
+            건의 내용 <span className="text-accent">*</span>
           </label>
           <textarea
             id="content"
@@ -130,7 +130,7 @@ export default function SubmitForm({ type }: { type: SuggestionType }) {
         <button
           type="submit"
           disabled={submitting}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-appleblue py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-appleblue-hover disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-accent py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? (
             <>

@@ -30,7 +30,7 @@ body {
   @apply outline-none ring-0 transition-shadow duration-200;
 }
 .focus-ring:focus {
-  @apply ring-4 ring-appleblue/25 border-appleblue;
+  @apply ring-4 ring-black/10 border-ink;
 }
 
 /* subtle custom scrollbar (desktop) */

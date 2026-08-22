@@ -49,7 +49,7 @@ export default function CodeLookup() {
         <button
           type="submit"
           disabled={moving}
-          className="flex items-center justify-center gap-2 rounded-xl bg-appleblue px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-appleblue-hover disabled:opacity-60"
+          className="flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
         >
           {moving ? (
             <Loader2 className="h-4.5 w-4.5 animate-spin" />

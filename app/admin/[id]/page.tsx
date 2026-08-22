@@ -20,7 +20,7 @@ export default async function AdminDetailPage({
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-md items-center px-5">
         <div className="w-full rounded-3xl border border-black/[0.08] bg-white p-8 text-center shadow-card">
-          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-appleblue/10 text-appleblue">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-white">
             <Lock className="h-7 w-7" strokeWidth={1.8} />
           </div>
           <h1 className="text-lg font-semibold text-ink">관리자 로그인이 필요합니다</h1>
@@ -29,7 +29,7 @@ export default async function AdminDetailPage({
           </p>
           <Link
             href="/admin"
-            className="mt-6 inline-block rounded-full bg-appleblue px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-appleblue-hover"
+            className="mt-6 inline-block rounded-full bg-accent px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-accent-hover"
           >
             로그인하러 가기
           </Link>

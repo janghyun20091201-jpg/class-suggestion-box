@@ -8,11 +8,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Apple Support palette
-        appleblue: {
-          DEFAULT: '#0071e3',
-          hover: '#0077ed',
-          light: '#e8f2fd',
+        // 포인트 컬러: 블랙 (화이트 배경 + 검정 포인트)
+        accent: {
+          DEFAULT: '#1d1d1f',
+          hover: '#000000',
+          light: '#f0f0f2',
         },
         ink: {
           DEFAULT: '#1d1d1f', // primary text

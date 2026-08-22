@@ -110,7 +110,7 @@ export default function AdminDetail({ suggestion }: { suggestion: Suggestion }) 
                   onClick={() => setStatus(s)}
                   className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
                     status === s
-                      ? 'bg-appleblue text-white'
+                      ? 'bg-accent text-white'
                       : 'border border-black/[0.1] text-ink-soft hover:bg-surface-gray'
                   }`}
                 >
@@ -145,7 +145,7 @@ export default function AdminDetail({ suggestion }: { suggestion: Suggestion }) 
             onClick={save}
             disabled={saving || !dirty}
             className={`flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-[15px] font-semibold transition-all ${
-              saved ? 'bg-emerald-500 text-white' : 'bg-appleblue text-white hover:bg-appleblue-hover'
+              saved ? 'border border-ink bg-white text-ink' : 'bg-accent text-white hover:bg-accent-hover'
             } disabled:cursor-not-allowed disabled:opacity-50`}
           >
             {saving ? (

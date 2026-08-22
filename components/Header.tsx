@@ -9,7 +9,7 @@ export default function Header() {
           href="/"
           className="group flex items-center gap-2 text-ink transition-opacity hover:opacity-70"
         >
-          <MessageSquareText className="h-[18px] w-[18px] text-appleblue" strokeWidth={2} />
+          <MessageSquareText className="h-[18px] w-[18px] text-accent" strokeWidth={2} />
           <span className="text-[15px] font-semibold tracking-tight sm:text-base">
             11-3 건의함
           </span>

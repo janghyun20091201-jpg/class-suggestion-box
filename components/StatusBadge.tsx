@@ -1,8 +1,9 @@
 import { SuggestionStatus } from '@/lib/types';
 
-const STYLES: Record<string, { pill: string; dot: string }> = {
-  '접수됨': { pill: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400' },
-  '완료': { pill: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
+// 흑백 톤: 접수됨 = 옅은 회색 / 완료 = 검정 채움
+const STYLES: Record<string, string> = {
+  '접수됨': 'bg-surface-gray text-ink-soft ring-1 ring-inset ring-black/[0.06]',
+  '완료': 'bg-accent text-white',
 };
 
 export default function StatusBadge({
@@ -12,13 +13,10 @@ export default function StatusBadge({
   status: SuggestionStatus | string;
   size?: 'sm' | 'md';
 }) {
-  const s = STYLES[status] ?? STYLES['접수됨'];
+  const style = STYLES[status] ?? STYLES['접수됨'];
   const sizeClass = size === 'sm' ? 'text-xs px-2.5 py-1' : 'text-sm px-3 py-1.5';
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full font-medium ${s.pill} ${sizeClass}`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+    <span className={`inline-flex items-center rounded-full font-medium ${style} ${sizeClass}`}>
       {status}
     </span>
   );

@@ -66,7 +66,7 @@ export default async function CheckResultPage({
           </p>
           <Link
             href="/"
-            className="mt-6 rounded-full bg-appleblue px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-appleblue-hover"
+            className="mt-6 rounded-full bg-accent px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-accent-hover"
           >
             다시 조회하기
           </Link>
@@ -126,7 +126,7 @@ export default async function CheckResultPage({
               <CornerDownRight className="h-4 w-4 text-ink-soft" /> 관리자 답변
             </h2>
             {suggestion.admin_reply ? (
-              <p className="whitespace-pre-wrap rounded-2xl border border-appleblue/15 bg-appleblue/[0.04] px-4 py-3.5 text-[15px] leading-relaxed text-ink">
+              <p className="whitespace-pre-wrap rounded-2xl border border-accent/15 bg-accent/[0.04] px-4 py-3.5 text-[15px] leading-relaxed text-ink">
                 {suggestion.admin_reply}
               </p>
             ) : (
