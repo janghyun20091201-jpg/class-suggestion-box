@@ -1,5 +1,5 @@
 -- ══════════════════════════════════════════════════════════════════
---  우리 반 건의함 — Supabase 스키마
+--  11-3 건의함 — Supabase 스키마
 --  Supabase 대시보드 → SQL Editor 에 붙여넣고 실행하세요.
 -- ══════════════════════════════════════════════════════════════════
 
@@ -9,10 +9,9 @@ create table if not exists public.suggestions (
   type         varchar(10)  not null,                 -- 'ANONYMOUS' | 'NAMED'
   author_name  varchar(50),                           -- 일반 건의일 때 학생 이름
   content      text         not null,
-  file_urls    text[]       default '{}',             -- 첨부파일 public URL 배열
-  status       varchar(20)  default '접수됨',          -- '접수됨' | '검토 중' | '완료'
+  status       varchar(20)  default '접수됨',          -- '접수됨' | '완료'
   admin_reply  text,
-  ticket_code  varchar(10)  unique not null,          -- 예: SUG-482913
+  ticket_code  varchar(10)  unique not null,          -- 숫자 6자리 (예: 482913)
   created_at   timestamptz  not null default timezone('utc'::text, now())
 );
 
@@ -28,12 +27,3 @@ create index if not exists suggestions_status_idx      on public.suggestions (st
 alter table public.suggestions enable row level security;
 
 -- 정책을 별도로 만들지 않음 → anon 클라이언트는 접근 불가(안전).
-
--- 3) 첨부파일 Storage 버킷 ---------------------------------------------
--- public 버킷으로 만들어 다운로드 링크(public URL)가 바로 동작하게 합니다.
-insert into storage.buckets (id, name, public)
-values ('attachments', 'attachments', true)
-on conflict (id) do nothing;
-
--- 업로드는 서버(service_role)에서만 수행하므로 anon 업로드 정책은 두지 않습니다.
--- public 버킷이라 파일 읽기(다운로드)는 누구나 URL로 가능합니다.

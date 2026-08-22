@@ -14,9 +14,6 @@ export async function POST(req: NextRequest) {
       body.type === 'NAMED' ? 'NAMED' : body.type === 'ANONYMOUS' ? 'ANONYMOUS' : null;
     const content = typeof body.content === 'string' ? body.content.trim() : '';
     const authorName = typeof body.author_name === 'string' ? body.author_name.trim() : '';
-    const fileUrls = Array.isArray(body.file_urls)
-      ? body.file_urls.filter((u: unknown): u is string => typeof u === 'string')
-      : [];
 
     if (!type) {
       return NextResponse.json({ error: '잘못된 건의 유형입니다.' }, { status: 400 });
@@ -31,9 +28,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '이름을 입력해 주세요.' }, { status: 400 });
     }
 
-    // 유니크한 접수코드 생성 — 충돌 시 최대 6회 재시도
+    // 유니크한 접수코드 생성 — 충돌 시 최대 8회 재시도
     let ticket = '';
-    for (let i = 0; i < 6; i++) {
+    let createdAt = '';
+    for (let i = 0; i < 8; i++) {
       const candidate = generateTicketCode();
       const { data, error } = await supabaseAdmin
         .from('suggestions')
@@ -41,14 +39,14 @@ export async function POST(req: NextRequest) {
           type,
           author_name: type === 'NAMED' ? authorName.slice(0, 50) : null,
           content,
-          file_urls: fileUrls,
           ticket_code: candidate,
         })
-        .select('ticket_code')
+        .select('ticket_code, created_at')
         .single();
 
       if (!error && data) {
         ticket = data.ticket_code;
+        createdAt = data.created_at;
         break;
       }
       // 23505 = unique_violation → 다른 코드로 재시도, 그 외 에러는 즉시 중단
@@ -65,7 +63,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ ticket_code: ticket }, { status: 201 });
+    // 몇 번째 건의인지 계산 (이 건의 포함, 접수 순서)
+    let order: number | null = null;
+    const { count, error: countError } = await supabaseAdmin
+      .from('suggestions')
+      .select('id', { count: 'exact', head: true })
+      .lte('created_at', createdAt);
+
+    if (!countError && typeof count === 'number') {
+      order = count;
+    }
+
+    return NextResponse.json({ ticket_code: ticket, order }, { status: 201 });
   } catch (e) {
     console.error('[suggestions:POST]', e);
     return NextResponse.json({ error: '요청 처리 중 오류가 발생했습니다.' }, { status: 500 });

@@ -1,8 +1,7 @@
 import { SuggestionStatus } from '@/lib/types';
 
-const STYLES: Record<SuggestionStatus, { pill: string; dot: string }> = {
+const STYLES: Record<string, { pill: string; dot: string }> = {
   '접수됨': { pill: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400' },
-  '검토 중': { pill: 'bg-amber-50 text-amber-700', dot: 'bg-amber-500' },
   '완료': { pill: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
 };
 
@@ -10,7 +9,7 @@ export default function StatusBadge({
   status,
   size = 'md',
 }: {
-  status: SuggestionStatus;
+  status: SuggestionStatus | string;
   size?: 'sm' | 'md';
 }) {
   const s = STYLES[status] ?? STYLES['접수됨'];

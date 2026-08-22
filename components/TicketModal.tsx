@@ -6,9 +6,11 @@ import { Check, Copy, PartyPopper, X, ArrowRight } from 'lucide-react';
 
 export default function TicketModal({
   code,
+  order,
   onClose,
 }: {
   code: string;
+  order: number | null;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -57,6 +59,13 @@ export default function TicketModal({
         <h2 className="text-center text-xl font-semibold tracking-tight text-ink">
           건의가 접수되었습니다
         </h2>
+
+        {order !== null && (
+          <p className="mt-2 text-center text-[15px] font-medium text-appleblue">
+            우리 반의 {order}번째 건의예요
+          </p>
+        )}
+
         <p className="mt-2 text-center text-[15px] leading-relaxed text-ink-muted">
           아래 접수코드를 저장해 두시면 나중에
           <br />
@@ -67,7 +76,7 @@ export default function TicketModal({
           <p className="text-center text-xs font-medium uppercase tracking-wider text-ink-muted">
             나의 접수코드
           </p>
-          <p className="mt-1.5 text-center font-mono text-3xl font-bold tracking-tight text-ink">
+          <p className="mt-1.5 text-center font-mono text-4xl font-bold tracking-[0.2em] text-ink">
             {code}
           </p>
         </div>
@@ -92,14 +101,14 @@ export default function TicketModal({
         </button>
 
         <div className="mt-3 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-full border border-black/[0.1] py-3 text-[15px] font-medium text-ink transition-colors hover:bg-surface-gray"
-          >
-            닫기
-          </button>
           <Link
-            href={`/check?code=${encodeURIComponent(code)}`}
+            href="/"
+            className="flex-1 rounded-full border border-black/[0.1] py-3 text-center text-[15px] font-medium text-ink transition-colors hover:bg-surface-gray"
+          >
+            홈으로
+          </Link>
+          <Link
+            href={`/check/${code}`}
             className="flex flex-1 items-center justify-center gap-1 rounded-full bg-ink py-3 text-[15px] font-medium text-white transition-opacity hover:opacity-90"
           >
             답변 확인 <ArrowRight className="h-4 w-4" />

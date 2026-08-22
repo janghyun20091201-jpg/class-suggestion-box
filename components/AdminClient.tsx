@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import Link from 'next/link';
 import {
   Lock,
   LogOut,
@@ -9,13 +10,12 @@ import {
   Inbox,
   EyeOff,
   PenLine,
-  Paperclip,
   CornerDownRight,
   AlertCircle,
   ShieldCheck,
+  ChevronRight,
 } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
-import AdminDetailDrawer from '@/components/AdminDetailDrawer';
 import { formatDate } from '@/lib/utils';
 import type { Suggestion, SuggestionStatus, SuggestionType } from '@/lib/types';
 
@@ -27,7 +27,6 @@ export default function AdminClient() {
   const [auth, setAuth] = useState<AuthState>('unknown');
   const [items, setItems] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<Suggestion | null>(null);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
@@ -58,16 +57,10 @@ export default function AdminClient() {
     await fetch('/api/admin/logout', { method: 'POST' });
     setAuth('guest');
     setItems([]);
-    setSelected(null);
-  };
-
-  const onUpdated = (updated: Suggestion) => {
-    setItems((prev) => prev.map((it) => (it.id === updated.id ? updated : it)));
-    setSelected(updated);
   };
 
   const counts = useMemo(() => {
-    const c = { total: items.length, '접수됨': 0, '검토 중': 0, '완료': 0 } as Record<string, number>;
+    const c: Record<string, number> = { total: items.length, '접수됨': 0, '완료': 0 };
     for (const it of items) c[it.status] = (c[it.status] || 0) + 1;
     return c;
   }, [items]);
@@ -94,7 +87,6 @@ export default function AdminClient() {
 
   return (
     <div className="mx-auto max-w-content px-5 py-10 sm:px-6 sm:py-12">
-      {/* Header */}
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="mb-1.5 flex items-center gap-2 text-appleblue">
@@ -125,15 +117,12 @@ export default function AdminClient() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-3 gap-3">
         <StatCard label="전체" value={counts.total} active={statusFilter === 'ALL'} onClick={() => setStatusFilter('ALL')} />
         <StatCard label="접수됨" value={counts['접수됨']} active={statusFilter === '접수됨'} onClick={() => setStatusFilter('접수됨')} tone="slate" />
-        <StatCard label="검토 중" value={counts['검토 중']} active={statusFilter === '검토 중'} onClick={() => setStatusFilter('검토 중')} tone="amber" />
         <StatCard label="완료" value={counts['완료']} active={statusFilter === '완료'} onClick={() => setStatusFilter('완료')} tone="emerald" />
       </div>
 
-      {/* Type filter */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <span className="text-sm text-ink-muted">유형</span>
         <FilterPill label="전체" active={typeFilter === 'ALL'} onClick={() => setTypeFilter('ALL')} />
@@ -141,7 +130,6 @@ export default function AdminClient() {
         <FilterPill label="일반" active={typeFilter === 'NAMED'} onClick={() => setTypeFilter('NAMED')} />
       </div>
 
-      {/* List */}
       {loading && items.length === 0 ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-ink-muted" />
@@ -157,59 +145,52 @@ export default function AdminClient() {
         <ul className="space-y-3">
           {filtered.map((it) => (
             <li key={it.id}>
-              <button
-                onClick={() => setSelected(it)}
-                className="group flex w-full flex-col gap-3 rounded-2xl border border-black/[0.08] bg-white p-5 text-left shadow-card transition-all hover:border-black/[0.14] hover:shadow-card-hover"
+              <Link
+                href={`/admin/${it.id}`}
+                className="group flex w-full items-center gap-4 rounded-2xl border border-black/[0.08] bg-white p-5 text-left shadow-card transition-all hover:border-black/[0.14] hover:shadow-card-hover"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-sm font-medium text-ink-soft">
-                    {it.type === 'ANONYMOUS' ? (
-                      <span className="inline-flex items-center gap-1">
-                        <EyeOff className="h-4 w-4" /> 익명
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-ink-soft">
+                      {it.type === 'ANONYMOUS' ? (
+                        <span className="inline-flex items-center gap-1">
+                          <EyeOff className="h-4 w-4" /> 익명
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1">
+                          <PenLine className="h-4 w-4" /> {it.author_name || '일반'}
+                        </span>
+                      )}
+                      <span className="font-mono text-xs tracking-widest text-ink-muted">
+                        {it.ticket_code}
                       </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1">
-                        <PenLine className="h-4 w-4" /> {it.author_name || '일반'}
+                    </div>
+                    <StatusBadge status={it.status} size="sm" />
+                  </div>
+
+                  <p className="mt-3 line-clamp-2 text-[15px] leading-relaxed text-ink">
+                    {it.content}
+                  </p>
+
+                  <div className="mt-3 flex items-center gap-3 text-xs text-ink-muted">
+                    <span>{formatDate(it.created_at)}</span>
+                    {it.admin_reply && (
+                      <span className="inline-flex items-center gap-1 text-appleblue">
+                        <CornerDownRight className="h-3.5 w-3.5" /> 답변 완료
                       </span>
                     )}
-                    <span className="font-mono text-xs text-ink-muted">{it.ticket_code}</span>
                   </div>
-                  <StatusBadge status={it.status} size="sm" />
                 </div>
-
-                <p className="line-clamp-2 text-[15px] leading-relaxed text-ink">{it.content}</p>
-
-                <div className="flex items-center gap-3 text-xs text-ink-muted">
-                  <span>{formatDate(it.created_at)}</span>
-                  {it.file_urls?.length > 0 && (
-                    <span className="inline-flex items-center gap-1">
-                      <Paperclip className="h-3.5 w-3.5" /> {it.file_urls.length}
-                    </span>
-                  )}
-                  {it.admin_reply && (
-                    <span className="inline-flex items-center gap-1 text-appleblue">
-                      <CornerDownRight className="h-3.5 w-3.5" /> 답변 완료
-                    </span>
-                  )}
-                </div>
-              </button>
+                <ChevronRight className="h-5 w-5 flex-shrink-0 text-ink-muted transition-transform group-hover:translate-x-0.5" />
+              </Link>
             </li>
           ))}
         </ul>
-      )}
-
-      {selected && (
-        <AdminDetailDrawer
-          suggestion={selected}
-          onClose={() => setSelected(null)}
-          onUpdated={onUpdated}
-        />
       )}
     </div>
   );
 }
 
-/* ───────────────────────── Login ───────────────────────── */
 function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -285,7 +266,6 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-/* ───────────────────────── UI bits ───────────────────────── */
 function StatCard({
   label,
   value,
@@ -297,12 +277,11 @@ function StatCard({
   value: number;
   active: boolean;
   onClick: () => void;
-  tone?: 'blue' | 'slate' | 'amber' | 'emerald';
+  tone?: 'blue' | 'slate' | 'emerald';
 }) {
   const dot = {
     blue: 'bg-appleblue',
     slate: 'bg-slate-400',
-    amber: 'bg-amber-500',
     emerald: 'bg-emerald-500',
   }[tone];
   return (

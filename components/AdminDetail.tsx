@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-  X,
+  ArrowLeft,
   EyeOff,
   PenLine,
-  Paperclip,
   MessageSquare,
   CornerDownRight,
   Save,
@@ -14,42 +15,18 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
-import AttachmentList from '@/components/AttachmentList';
 import { formatDate } from '@/lib/utils';
 import { STATUS_LIST, type Suggestion, type SuggestionStatus } from '@/lib/types';
 
-export default function AdminDetailDrawer({
-  suggestion,
-  onClose,
-  onUpdated,
-}: {
-  suggestion: Suggestion;
-  onClose: () => void;
-  onUpdated: (s: Suggestion) => void;
-}) {
-  const [status, setStatus] = useState<SuggestionStatus>(suggestion.status);
+export default function AdminDetail({ suggestion }: { suggestion: Suggestion }) {
+  const router = useRouter();
+  const [status, setStatus] = useState<SuggestionStatus>(
+    STATUS_LIST.includes(suggestion.status) ? suggestion.status : '접수됨'
+  );
   const [reply, setReply] = useState(suggestion.admin_reply ?? '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // 다른 항목을 열면 로컬 상태 동기화
-  useEffect(() => {
-    setStatus(suggestion.status);
-    setReply(suggestion.admin_reply ?? '');
-    setSaved(false);
-    setError(null);
-  }, [suggestion.id, suggestion.status, suggestion.admin_reply]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [onClose]);
 
   const dirty = status !== suggestion.status || reply !== (suggestion.admin_reply ?? '');
 
@@ -64,8 +41,8 @@ export default function AdminDetailDrawer({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '저장에 실패했습니다.');
-      onUpdated(data.suggestion);
       setSaved(true);
+      router.refresh();
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
@@ -75,12 +52,16 @@ export default function AdminDetailDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+    <>
+      <Link
+        href="/admin"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink-muted transition-colors hover:text-ink"
+      >
+        <ArrowLeft className="h-4 w-4" /> 목록으로
+      </Link>
 
-      <div className="absolute inset-y-0 right-0 flex w-full max-w-lg animate-slide-in-right flex-col bg-white shadow-modal">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-black/[0.06] px-6 py-4">
+      <div className="overflow-hidden rounded-3xl border border-black/[0.08] bg-white shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] px-6 py-4">
           <div className="flex items-center gap-2 text-sm font-medium text-ink-soft">
             {suggestion.type === 'ANONYMOUS' ? (
               <>
@@ -91,23 +72,15 @@ export default function AdminDetailDrawer({
                 <PenLine className="h-4 w-4" /> 일반 건의
               </>
             )}
-            <span className="font-mono text-xs text-ink-muted">{suggestion.ticket_code}</span>
+            <span className="font-mono text-xs tracking-widest text-ink-muted">
+              {suggestion.ticket_code}
+            </span>
           </div>
-          <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-gray hover:text-ink"
-            aria-label="닫기"
-          >
-            <X className="h-4.5 w-4.5" />
-          </button>
+          <StatusBadge status={suggestion.status} />
         </div>
 
-        {/* Body (scrollable) */}
-        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <StatusBadge status={suggestion.status} />
-            <span className="text-xs text-ink-muted">{formatDate(suggestion.created_at)}</span>
-          </div>
+        <div className="space-y-6 px-6 py-6">
+          <p className="text-xs text-ink-muted">{formatDate(suggestion.created_at)}</p>
 
           {suggestion.type === 'NAMED' && (
             <div>
@@ -119,30 +92,21 @@ export default function AdminDetailDrawer({
           )}
 
           <div>
-            <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink">
+            <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink">
               <MessageSquare className="h-4 w-4 text-ink-soft" /> 건의 내용
-            </h3>
+            </h2>
             <p className="whitespace-pre-wrap rounded-2xl bg-surface-gray px-4 py-3.5 text-[15px] leading-relaxed text-ink">
               {suggestion.content}
             </p>
           </div>
 
-          {suggestion.file_urls?.length > 0 && (
-            <div>
-              <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink">
-                <Paperclip className="h-4 w-4 text-ink-soft" /> 첨부파일 ({suggestion.file_urls.length})
-              </h3>
-              <AttachmentList urls={suggestion.file_urls} />
-            </div>
-          )}
-
-          {/* Status control */}
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-ink">처리 상태</h3>
+            <h2 className="mb-2 text-sm font-semibold text-ink">처리 상태</h2>
             <div className="flex flex-wrap gap-2">
               {STATUS_LIST.map((s) => (
                 <button
                   key={s}
+                  type="button"
                   onClick={() => setStatus(s)}
                   className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
                     status === s
@@ -156,15 +120,14 @@ export default function AdminDetailDrawer({
             </div>
           </div>
 
-          {/* Reply */}
           <div>
-            <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink">
+            <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink">
               <CornerDownRight className="h-4 w-4 text-ink-soft" /> 관리자 답변
-            </h3>
+            </h2>
             <textarea
               value={reply}
               onChange={(e) => setReply(e.target.value)}
-              rows={5}
+              rows={6}
               placeholder="학생에게 전달할 답변을 입력하세요."
               className="focus-ring w-full resize-y rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-[15px] leading-relaxed text-ink placeholder:text-ink-muted"
               disabled={saving}
@@ -177,17 +140,12 @@ export default function AdminDetailDrawer({
               <span>{error}</span>
             </div>
           )}
-        </div>
 
-        {/* Footer */}
-        <div className="border-t border-black/[0.06] px-6 py-4">
           <button
             onClick={save}
             disabled={saving || !dirty}
             className={`flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-[15px] font-semibold transition-all ${
-              saved
-                ? 'bg-emerald-500 text-white'
-                : 'bg-appleblue text-white hover:bg-appleblue-hover'
+              saved ? 'bg-emerald-500 text-white' : 'bg-appleblue text-white hover:bg-appleblue-hover'
             } disabled:cursor-not-allowed disabled:opacity-50`}
           >
             {saving ? (
@@ -206,6 +164,6 @@ export default function AdminDetailDrawer({
           </button>
         </div>
       </div>
-    </div>
+    </>
   );
 }

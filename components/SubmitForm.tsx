@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { EyeOff, PenLine, Send, Loader2, ArrowLeft, AlertCircle } from 'lucide-react';
-import FileDropzone from '@/components/FileDropzone';
 import TicketModal from '@/components/TicketModal';
 import type { SuggestionType } from '@/lib/types';
 
@@ -12,10 +11,9 @@ export default function SubmitForm({ type }: { type: SuggestionType }) {
 
   const [authorName, setAuthorName] = useState('');
   const [content, setContent] = useState('');
-  const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [ticket, setTicket] = useState<string | null>(null);
+  const [result, setResult] = useState<{ code: string; order: number | null } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,18 +30,6 @@ export default function SubmitForm({ type }: { type: SuggestionType }) {
 
     setSubmitting(true);
     try {
-      // 1) 첨부파일 업로드
-      let fileUrls: string[] = [];
-      if (files.length > 0) {
-        const fd = new FormData();
-        files.forEach((f) => fd.append('files', f));
-        const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
-        const upData = await upRes.json();
-        if (!upRes.ok) throw new Error(upData.error || '파일 업로드에 실패했습니다.');
-        fileUrls = upData.urls || [];
-      }
-
-      // 2) 건의 접수
       const res = await fetch('/api/suggestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -51,13 +37,12 @@ export default function SubmitForm({ type }: { type: SuggestionType }) {
           type,
           author_name: isNamed ? authorName.trim() : null,
           content: content.trim(),
-          file_urls: fileUrls,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '접수에 실패했습니다.');
 
-      setTicket(data.ticket_code);
+      setResult({ code: data.ticket_code, order: data.order ?? null });
     } catch (err) {
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -68,13 +53,12 @@ export default function SubmitForm({ type }: { type: SuggestionType }) {
   return (
     <>
       <Link
-        href="/"
+        href="/submit"
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink-muted transition-colors hover:text-ink"
       >
-        <ArrowLeft className="h-4 w-4" /> 홈으로
+        <ArrowLeft className="h-4 w-4" /> 유형 다시 고르기
       </Link>
 
-      {/* Mode header */}
       <div className="mb-8">
         <div
           className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl ${
@@ -95,26 +79,6 @@ export default function SubmitForm({ type }: { type: SuggestionType }) {
             ? '이름과 함께 건의를 남깁니다. 관리자가 누가 남겼는지 확인할 수 있어요.'
             : '이름 없이 건의를 남깁니다. 누가 작성했는지 저장되지 않아요.'}
         </p>
-
-        {/* Mode switch */}
-        <div className="mt-4 inline-flex rounded-full border border-black/[0.08] bg-surface-gray p-1 text-sm">
-          <Link
-            href="/submit?type=anonymous"
-            className={`rounded-full px-4 py-1.5 font-medium transition-colors ${
-              !isNamed ? 'bg-white text-ink shadow-card' : 'text-ink-muted hover:text-ink'
-            }`}
-          >
-            익명
-          </Link>
-          <Link
-            href="/submit?type=named"
-            className={`rounded-full px-4 py-1.5 font-medium transition-colors ${
-              isNamed ? 'bg-white text-ink shadow-card' : 'text-ink-muted hover:text-ink'
-            }`}
-          >
-            일반
-          </Link>
-        </div>
       </div>
 
       <form
@@ -132,7 +96,7 @@ export default function SubmitForm({ type }: { type: SuggestionType }) {
               value={authorName}
               onChange={(e) => setAuthorName(e.target.value)}
               maxLength={50}
-              placeholder="예) 3학년 2반 김철수"
+              placeholder="예) 김철수"
               className="focus-ring w-full rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-[15px] text-ink placeholder:text-ink-muted"
               disabled={submitting}
             />
@@ -147,18 +111,13 @@ export default function SubmitForm({ type }: { type: SuggestionType }) {
             id="content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            rows={7}
+            rows={8}
             maxLength={5000}
             placeholder="우리 반을 위한 솔직한 의견을 자유롭게 남겨주세요."
             className="focus-ring w-full resize-y rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-[15px] leading-relaxed text-ink placeholder:text-ink-muted"
             disabled={submitting}
           />
           <p className="mt-1.5 text-right text-xs text-ink-muted">{content.length} / 5000</p>
-        </div>
-
-        <div className="mb-6">
-          <label className="mb-2 block text-sm font-medium text-ink">첨부파일</label>
-          <FileDropzone files={files} onChange={setFiles} disabled={submitting} />
         </div>
 
         {error && (
@@ -190,7 +149,9 @@ export default function SubmitForm({ type }: { type: SuggestionType }) {
         </p>
       </form>
 
-      {ticket && <TicketModal code={ticket} onClose={() => setTicket(null)} />}
+      {result && (
+        <TicketModal code={result.code} order={result.order} onClose={() => setResult(null)} />
+      )}
     </>
   );
 }
