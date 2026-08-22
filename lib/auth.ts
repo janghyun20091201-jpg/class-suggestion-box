@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
+import { ADMIN_COOKIE } from '@/lib/constants';
 
 /**
  * 아주 단순한 무상태(stateless) 관리자 세션.
@@ -9,7 +10,7 @@ import { cookies } from 'next/headers';
  * 비밀번호를 바꾸면 기존 세션은 자동으로 무효화됩니다.
  */
 
-export const ADMIN_COOKIE = 'admin_session';
+export { ADMIN_COOKIE };
 
 export function expectedToken(): string {
   const pw = process.env.ADMIN_PASSWORD || '';

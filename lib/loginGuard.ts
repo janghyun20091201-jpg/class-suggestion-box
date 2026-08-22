@@ -1,77 +1,105 @@
 import crypto from 'crypto';
-import type { NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 /**
- * 관리자 로그인 잠금.
- * - 비밀번호를 MAX_FAILS 번 틀리면 LOCK_MINUTES 동안 로그인 시도를 막습니다.
- * - 잠금 상태는 DB에 저장하므로 새로고침·창을 닫았다 열어도 그대로 유지됩니다.
- * - 접속자는 IP를 해시한 값으로 구분합니다(원본 IP는 저장하지 않음).
+ * 관리자 로그인 보호.
+ *
+ * 설계 원칙: **올바른 비밀번호는 언제나 즉시 통과한다.**
+ * 같은 와이파이를 쓰는 다른 사람 때문에 관리자가 못 들어가는 일이 없어야 하므로
+ * IP가 아니라 "기기(브라우저)"를 기준으로 잠급니다.
+ *
+ * 1) 기기별 잠금 : 한 브라우저에서 5번 틀리면 그 브라우저만 5분간 잠김
+ * 2) 전체 감속   : 짧은 시간에 실패가 몰리면 '틀린 답'에 대한 응답만 점점 느려짐
+ *                 (자동 프로그램의 무작위 대입을 사실상 불가능하게 만듦)
+ *                 정답은 지연 없이 통과하므로 관리자는 영향을 받지 않음
  */
 
 export const LOCK_MINUTES = 5;
-export const MAX_FAILS = 1; // 1번만 틀려도 잠금
+export const MAX_FAILS = 5; // 5번 틀리면 잠금
 
 const TABLE = 'admin_login_attempts';
+const GLOBAL_ID = '__global__';
+const GLOBAL_WINDOW_MS = 5 * 60 * 1000;
 
-/**
- * DB 표가 아직 없을 때 쓰는 임시 저장소(서버 메모리).
- * 서버가 재시작되면 사라지므로 완전하지 않습니다 — 반드시 마이그레이션 SQL을 실행하세요.
- */
-const memoryLocks = new Map<string, { failCount: number; lockedUntil: number }>();
+/* ── 표가 없을 때 쓰는 임시 저장소 (서버 메모리) ───────────────────── */
+const memory = new Map<string, { failCount: number; lockedUntil: number; at: number }>();
 
-function memGetLock(key: string): LockState {
-  const rec = memoryLocks.get(key);
-  if (!rec || rec.lockedUntil <= Date.now()) return { locked: false, retryAfterSeconds: 0, ready: false };
-  return {
-    locked: true,
-    retryAfterSeconds: Math.ceil((rec.lockedUntil - Date.now()) / 1000),
-    ready: false,
-  };
+function memGet(key: string) {
+  return memory.get(key) ?? { failCount: 0, lockedUntil: 0, at: 0 };
 }
 
-function memRecordFailure(key: string): LockState {
-  const rec = memoryLocks.get(key) ?? { failCount: 0, lockedUntil: 0 };
-  const fails = rec.failCount + 1;
-  if (fails >= MAX_FAILS) {
-    memoryLocks.set(key, { failCount: 0, lockedUntil: Date.now() + LOCK_MINUTES * 60 * 1000 });
-    return { locked: true, retryAfterSeconds: LOCK_MINUTES * 60, ready: false };
-  }
-  memoryLocks.set(key, { failCount: fails, lockedUntil: 0 });
-  return { locked: false, retryAfterSeconds: 0, ready: false };
+/* ── 기기 식별 ─────────────────────────────────────────────────────── */
+
+function secret(): string {
+  return process.env.SESSION_SECRET || 'class-suggestion-fallback-secret';
 }
 
-/** 접속자 식별키 (IP 해시) */
-export function clientKey(req: NextRequest): string {
-  const xff = req.headers.get('x-forwarded-for') || '';
-  const ip =
-    xff.split(',')[0].trim() ||
-    req.headers.get('x-real-ip') ||
-    'unknown';
-  const secret = process.env.SESSION_SECRET || 'class-suggestion-fallback-secret';
-  return crypto.createHmac('sha256', secret).update(ip).digest('hex').slice(0, 32);
+function sign(value: string): string {
+  return crypto.createHmac('sha256', secret()).update(value).digest('hex').slice(0, 16);
 }
+
+/** 새 기기 ID 발급 (쿠키에 저장할 서명된 값) */
+export function newDeviceToken(): string {
+  const id = crypto.randomBytes(12).toString('hex');
+  return `${id}.${sign(id)}`;
+}
+
+/** 쿠키에서 읽은 값이 우리가 발급한 것인지 확인하고 기기 ID를 돌려줌 */
+export function parseDeviceToken(token: string | undefined): string | null {
+  if (!token) return null;
+  const [id, sig] = token.split('.');
+  if (!id || !sig) return null;
+  const expected = sign(id);
+  if (sig.length !== expected.length) return null;
+  return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected)) ? id : null;
+}
+
+function deviceKey(deviceId: string): string {
+  return `dev:${deviceId}`;
+}
+
+/* ── 잠금 상태 ─────────────────────────────────────────────────────── */
 
 export interface LockState {
   locked: boolean;
   retryAfterSeconds: number;
-  /** 잠금 표가 준비돼 있는지 (false면 보호가 동작하지 않음 — 마이그레이션 필요) */
+  /** 잠금 표가 준비돼 있는지 (false면 임시 저장소로 동작 중) */
   ready: boolean;
 }
 
-/** 현재 잠겨 있는지 확인 */
-export async function getLockState(key: string): Promise<LockState> {
+async function readRow(id: string) {
   const { data, error } = await supabaseAdmin
     .from(TABLE)
-    .select('locked_until')
-    .eq('id', key)
+    .select('fail_count, locked_until, updated_at')
+    .eq('id', id)
     .maybeSingle();
+  return { data, error };
+}
 
-  // 표가 아직 없거나 조회 실패 → 잠그지 않음(관리자가 아예 못 들어가는 상황 방지)
+async function writeRow(
+  id: string,
+  fields: { fail_count: number; locked_until: string | null }
+) {
+  return supabaseAdmin.from(TABLE).upsert(
+    { id, ...fields, updated_at: new Date().toISOString() },
+    { onConflict: 'id' }
+  );
+}
+
+/** 이 기기가 지금 잠겨 있는지 */
+export async function getLockState(deviceId: string | null): Promise<LockState> {
+  if (!deviceId) return { locked: false, retryAfterSeconds: 0, ready: true };
+
+  const { data, error } = await readRow(deviceKey(deviceId));
+
   if (error) {
-    console.warn('[loginGuard] 잠금 표 조회 실패 (마이그레이션 필요):', error.message);
-    return memGetLock(key); // 표가 없으면 메모리 잠금으로 대체
+    const rec = memGet(deviceKey(deviceId));
+    const remain = rec.lockedUntil - Date.now();
+    return remain > 0
+      ? { locked: true, retryAfterSeconds: Math.ceil(remain / 1000), ready: false }
+      : { locked: false, retryAfterSeconds: 0, ready: false };
   }
+
   if (!data?.locked_until) return { locked: false, retryAfterSeconds: 0, ready: true };
 
   const remainMs = new Date(data.locked_until).getTime() - Date.now();
@@ -80,47 +108,74 @@ export async function getLockState(key: string): Promise<LockState> {
   return { locked: true, retryAfterSeconds: Math.ceil(remainMs / 1000), ready: true };
 }
 
-/** 로그인 실패 기록 → 필요하면 잠금 */
-export async function recordFailure(key: string): Promise<LockState> {
-  const { data } = await supabaseAdmin
-    .from(TABLE)
-    .select('fail_count')
-    .eq('id', key)
-    .maybeSingle();
+/** 로그인 실패 기록 → 5회째면 이 기기를 잠금 */
+export async function recordFailure(
+  deviceId: string
+): Promise<LockState & { failCount: number }> {
+  const key = deviceKey(deviceId);
+  const { data, error } = await readRow(key);
+
+  if (error) {
+    // 임시 저장소로 대체
+    const rec = memGet(key);
+    const fails = rec.failCount + 1;
+    if (fails >= MAX_FAILS) {
+      memory.set(key, { failCount: 0, lockedUntil: Date.now() + LOCK_MINUTES * 60_000, at: Date.now() });
+      return { locked: true, retryAfterSeconds: LOCK_MINUTES * 60, ready: false, failCount: fails };
+    }
+    memory.set(key, { failCount: fails, lockedUntil: 0, at: Date.now() });
+    return { locked: false, retryAfterSeconds: 0, ready: false, failCount: fails };
+  }
 
   const fails = (data?.fail_count ?? 0) + 1;
   const shouldLock = fails >= MAX_FAILS;
-  const lockedUntil = shouldLock
-    ? new Date(Date.now() + LOCK_MINUTES * 60 * 1000).toISOString()
-    : null;
 
-  const { error } = await supabaseAdmin.from(TABLE).upsert(
-    {
-      id: key,
-      fail_count: shouldLock ? 0 : fails, // 잠근 뒤에는 카운트 초기화
-      locked_until: lockedUntil,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'id' }
-  );
-
-  if (error) {
-    console.warn('[loginGuard] 잠금 기록 실패:', error.message);
-    return memRecordFailure(key); // 표가 없으면 메모리 잠금으로 대체
-  }
+  await writeRow(key, {
+    fail_count: shouldLock ? 0 : fails, // 잠근 뒤에는 카운트 초기화
+    locked_until: shouldLock
+      ? new Date(Date.now() + LOCK_MINUTES * 60_000).toISOString()
+      : null,
+  });
 
   return shouldLock
-    ? { locked: true, retryAfterSeconds: LOCK_MINUTES * 60, ready: true }
-    : { locked: false, retryAfterSeconds: 0, ready: true };
+    ? { locked: true, retryAfterSeconds: LOCK_MINUTES * 60, ready: true, failCount: fails }
+    : { locked: false, retryAfterSeconds: 0, ready: true, failCount: fails };
 }
 
-/** 로그인 성공 → 기록 초기화 */
-export async function clearFailures(key: string): Promise<void> {
-  memoryLocks.delete(key);
-  await supabaseAdmin
-    .from(TABLE)
-    .upsert(
-      { id: key, fail_count: 0, locked_until: null, updated_at: new Date().toISOString() },
-      { onConflict: 'id' }
-    );
+/** 로그인 성공 → 이 기기의 실패 기록 초기화 */
+export async function clearFailures(deviceId: string): Promise<void> {
+  const key = deviceKey(deviceId);
+  memory.delete(key);
+  await writeRow(key, { fail_count: 0, locked_until: null }).catch(() => {});
+}
+
+/* ── 전체 감속 (자동 대입 방지) ────────────────────────────────────── */
+
+/**
+ * 최근 5분간 전체 실패 횟수를 세고, 그에 따른 '틀린 답' 응답 지연 시간을 돌려줍니다.
+ * 정답에는 적용하지 않으므로 관리자는 항상 즉시 로그인됩니다.
+ */
+export async function bumpGlobalAndGetDelayMs(): Promise<number> {
+  const now = Date.now();
+
+  const { data, error } = await readRow(GLOBAL_ID);
+
+  let count: number;
+  if (error) {
+    const rec = memGet(GLOBAL_ID);
+    count = now - rec.at > GLOBAL_WINDOW_MS ? 1 : rec.failCount + 1;
+    memory.set(GLOBAL_ID, { failCount: count, lockedUntil: 0, at: now });
+  } else {
+    const last = data?.updated_at ? new Date(data.updated_at).getTime() : 0;
+    count = now - last > GLOBAL_WINDOW_MS ? 1 : (data?.fail_count ?? 0) + 1;
+    await writeRow(GLOBAL_ID, { fail_count: count, locked_until: null });
+  }
+
+  if (count >= 20) return 5000;
+  if (count >= 10) return 2000;
+  return 0;
+}
+
+export function sleep(ms: number): Promise<void> {
+  return ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve();
 }

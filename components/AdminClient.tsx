@@ -333,7 +333,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
         {locked ? (
           <>
             <p className="mt-2 text-center text-sm leading-relaxed text-ink-muted">
-              비밀번호를 틀려서 잠시 로그인할 수 없어요.
+              비밀번호를 5번 틀려서 잠시 로그인할 수 없어요.
               <br />
               아래 시간이 지나면 다시 시도할 수 있습니다.
             </p>
@@ -345,8 +345,10 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
                 {mm}:{ss}
               </p>
             </div>
-            <p className="mt-4 text-center text-xs text-ink-muted">
+            <p className="mt-4 text-center text-xs leading-relaxed text-ink-muted">
               새로고침하거나 창을 닫아도 시간은 그대로 유지됩니다.
+              <br />
+              잠금은 이 기기에만 적용되며, 다른 사람에게는 영향을 주지 않습니다.
             </p>
           </>
         ) : (
@@ -370,7 +372,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
                 disabled={loading}
               />
               <p className="mt-2 text-xs text-ink-muted">
-                한 번이라도 틀리면 5분 동안 로그인할 수 없습니다.
+                5번 틀리면 이 기기에서 5분 동안 로그인할 수 없습니다.
               </p>
             </div>
 

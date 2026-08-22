@@ -22,5 +22,11 @@ export const supabaseAdmin = createClient(
       persistSession: false,
       autoRefreshToken: false,
     },
+    global: {
+      // Next.js 가 fetch 결과를 캐시하면 삭제·수정된 건의가 계속 보일 수 있으므로
+      // Supabase 요청은 항상 캐시 없이 최신 데이터를 읽습니다.
+      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        fetch(input, { ...init, cache: 'no-store' }),
+    },
   }
 );
