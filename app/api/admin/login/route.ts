@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 8, // 8시간
+      // maxAge 를 두지 않아 브라우저를 닫으면 세션이 사라집니다.
     });
     return attach(res);
   }

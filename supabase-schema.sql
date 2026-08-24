@@ -3,6 +3,9 @@
 --  Supabase 대시보드 → SQL Editor 에 붙여넣고 실행하세요.
 -- ══════════════════════════════════════════════════════════════════
 
+-- 0) 누적 건의 번호용 시퀀스 (삭제해도 번호가 줄어들지 않음)
+create sequence if not exists public.suggestion_seq;
+
 -- 1) 건의 테이블 ---------------------------------------------------------
 create table if not exists public.suggestions (
   id           uuid primary key default gen_random_uuid(),
@@ -12,6 +15,7 @@ create table if not exists public.suggestions (
   status       varchar(20)  default '접수됨',          -- '접수됨' | '완료'
   admin_reply  text,
   ticket_code  varchar(10)  unique not null,          -- 숫자 6자리 (예: 482913)
+  seq          bigint       default nextval('public.suggestion_seq'), -- 누적 번호(삭제해도 안 줄어듦)
   created_at   timestamptz  not null default timezone('utc'::text, now())
 );
 

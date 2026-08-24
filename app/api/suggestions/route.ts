@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     // 유니크한 접수코드 생성 — 충돌 시 최대 8회 재시도
     let ticket = '';
     let createdAt = '';
+    let insertedId = '';
     for (let i = 0; i < 8; i++) {
       const candidate = generateTicketCode();
       const { data, error } = await supabaseAdmin
@@ -41,12 +42,13 @@ export async function POST(req: NextRequest) {
           content,
           ticket_code: candidate,
         })
-        .select('ticket_code, created_at')
+        .select('id, ticket_code, created_at')
         .single();
 
       if (!error && data) {
         ticket = data.ticket_code;
         createdAt = data.created_at;
+        insertedId = data.id;
         break;
       }
       // 23505 = unique_violation → 다른 코드로 재시도, 그 외 에러는 즉시 중단
@@ -63,15 +65,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 몇 번째 건의인지 계산 (이 건의 포함, 접수 순서)
+    // 몇 번째 건의인지 — 누적 번호(seq)를 사용합니다.
+    // seq 는 시퀀스로 발급되므로 건의를 삭제해도 번호가 줄어들지 않습니다.
     let order: number | null = null;
-    const { count, error: countError } = await supabaseAdmin
-      .from('suggestions')
-      .select('id', { count: 'exact', head: true })
-      .lte('created_at', createdAt);
 
-    if (!countError && typeof count === 'number') {
-      order = count;
+    const { data: seqRow, error: seqError } = await supabaseAdmin
+      .from('suggestions')
+      .select('seq')
+      .eq('id', insertedId)
+      .maybeSingle();
+
+    if (!seqError && seqRow && seqRow.seq != null) {
+      order = Number(seqRow.seq);
+    } else {
+      // seq 칸이 아직 없으면(마이그레이션 전) 전체 개수로 대체
+      const { count, error: countError } = await supabaseAdmin
+        .from('suggestions')
+        .select('id', { count: 'exact', head: true })
+        .lte('created_at', createdAt);
+      if (!countError && typeof count === 'number') order = count;
     }
 
     return NextResponse.json({ ticket_code: ticket, order }, { status: 201 });
